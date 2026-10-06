@@ -1,0 +1,105 @@
+#include "HX711.h"
+
+// ---------------- PIN DEFINITIONS ----------------
+#define HX711_DOUT 3
+#define HX711_SCK  2
+
+#define BUZZER_PIN 8
+#define LED_PIN    9
+
+// ---------------- HX711 SETUP ----------------
+HX711 scale;
+
+// Calibration factor
+// This MUST be determined experimentally.
+float calibration_factor = -7050.0;
+
+// ---------------- THRESHOLD ----------------
+// Example: alert when urine volume reaches 1500 mL
+float FULL_THRESHOLD_ML = 1500.0;
+
+// ---------------- VARIABLES ----------------
+float weight_grams;
+float volume_ml;
+
+void setup()
+{
+  Serial.begin(9600);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(LED_PIN, LOW);
+
+  // Start HX711
+  scale.begin(HX711_DOUT, HX711_SCK);
+
+  // Set calibration factor
+  scale.set_scale(calibration_factor);
+
+  // Tare the load cell
+  Serial.println("Starting system...");
+  Serial.println("Please make sure the empty bag/hanger is attached.");
+
+  delay(3000);
+
+  scale.tare();
+
+  Serial.println("Tare complete.");
+  Serial.println("Urinary Bag Monitoring System Started.");
+  Serial.println("------------------------------------");
+}
+
+void loop()
+{
+  // Read average of 10 measurements
+  weight_grams = scale.get_units(10);
+
+  // Prevent small negative readings due to sensor noise
+  if (weight_grams < 0)
+  {
+    weight_grams = 0;
+  }
+
+  // Assuming urine density ≈ 1 g/mL
+  // Therefore:
+  // 1 gram of urine ≈ 1 mL of urine
+
+  volume_ml = weight_grams;
+
+  // ---------------- DISPLAY DATA ----------------
+
+  Serial.print("Weight: ");
+  Serial.print(weight_grams);
+  Serial.print(" g");
+
+  Serial.print(" | Volume: ");
+  Serial.print(volume_ml);
+  Serial.println(" mL");
+
+
+  // ---------------- FULL BAG ALERT ----------------
+
+  if (volume_ml >= FULL_THRESHOLD_ML)
+  {
+    digitalWrite(LED_PIN, HIGH);
+
+    // Buzzer ON
+    tone(BUZZER_PIN, 2000);
+
+    Serial.println("!!! ALERT !!!");
+    Serial.println("Urinary bag has reached the threshold.");
+    Serial.println("Please check/empty the bag.");
+  }
+
+  else
+  {
+    digitalWrite(LED_PIN, LOW);
+
+    // Buzzer OFF
+    noTone(BUZZER_PIN);
+  }
+
+  delay(1000);
+}
